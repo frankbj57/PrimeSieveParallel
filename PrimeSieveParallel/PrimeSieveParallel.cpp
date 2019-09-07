@@ -2,47 +2,78 @@
 //
 
 #include <iostream>
+#include <algorithm>
 #include <agents.h>
 
 using namespace concurrency;
 using namespace std;
 
-typedef unsigned long int itype;
-const int numberSieves = 2;
-const itype MAXNUM = 10000;
+typedef unsigned long long int itype;
+const int numberSieves = 8;
+const itype MAXNUM = 100000000000ULL;
 
-class starter : public concurrency::agent
+class sieve : public agent
 {
 public:
-	starter(ISource<itype>& primes, unbounded_buffer<itype>* users[], int numUsers)
-		: inputPrimes(primes), primeUsers(users), numPrimeUsers(numUsers)
+	sieve(ISource<itype>& primes, itype startRange, itype endRange)
+		: inputPrimes(primes), startRange(startRange), end(endRange)
 	{
 	};
 
+	char* numbers = nullptr;
+
+	~sieve()
+	{
+		delete[] numbers;
+	}
+
 private:
-	ISource<itype> &inputPrimes;
-	unbounded_buffer<itype>** primeUsers;
-	int numPrimeUsers;
+	ISource<itype>& inputPrimes;
+	itype startRange, end;
 
 	void run()
 	{
-		for (int i = 0; i < numPrimeUsers; i++)
+		itype rangeSize = end - startRange;
+		numbers = new char[rangeSize];
+		for (itype i = 0; i < rangeSize; i++)
+			numbers[i] = 0;
+
+		itype sqrtEnd = sqrt((double)end) + 1;
+		itype p = 2;
+
+		// Wait for the first prime
+		p = receive(inputPrimes);
+
+		while (p < sqrtEnd)
 		{
-			send(primeUsers[i], (itype) 2);
+			// Cross out all multiples
+			itype i;
+
+			// Calculate starting point
+			itype offset = (startRange % p);
+
+			if (p * p > startRange)
+				i = p * p - startRange;
+			else
+				i = (offset == 0 && p != startRange) ? 0 : (p - offset);
+
+			if (i < rangeSize)
+			{
+				for (; ; i += p)
+				{
+					numbers[i] = 1;
+					// Do the end condition before the increment, to ensure maximum number range within type
+					if (i >= rangeSize - p)
+						break;
+				}
+			}
+
+			p = receive(inputPrimes);
 		}
 
-		// Wait for the first returned prime
-		itype p = receive(inputPrimes);
-
+		// Remaining primes must also be received
 		while (p < MAXNUM)
 		{
-			cout << "Prime found: " << p << endl;
-			// Send to all users
-			for (int i = 0; i < numPrimeUsers; i++)
-			{
-				send(primeUsers[i], p);
-			}
-			// Wait for the next prime
 			p = receive(inputPrimes);
 		}
 
@@ -50,97 +81,114 @@ private:
 	};
 };
 
-class sieve : public agent
+class starter : public concurrency::agent
 {
 public:
-	sieve(ISource<itype>& primes, ITarget<itype>& primeReceiver, itype startRange, itype endRange)
-		: inputPrimes(primes), outputPrimes(primeReceiver), start(startRange), end(endRange)
+	starter()
 	{
 	};
 
 private:
-	ISource<itype>& inputPrimes;
-	ITarget<itype>& outputPrimes;
-	itype start, end;
-
 	void run()
 	{
-		itype rangeSize = end - start;
-		char* numbers = new char[rangeSize];
-		for (itype i = 0; i < rangeSize; i++)
+		agent* sievesArray[numberSieves];
+
+		unbounded_buffer<itype> primeUsers[numberSieves];
+
+		itype sqrtMAXNUM = sqrt(double(MAXNUM)) + 1;
+		itype sqrtSqrtMAXNUM = sqrt((double)sqrtMAXNUM) + 1;
+		char* numbers = new char[sqrtMAXNUM];
+		for (itype i = 0; i < sqrtMAXNUM; i++)
 			numbers[i] = 0;
 
-		itype sqrtMAXNUM = sqrt((double)end) + 1;
-		itype gate = 2;
-		itype p = 2;
-
-		// Wait for the first prime
-		p = receive(inputPrimes);
-
-		while (p < sqrtMAXNUM)
+		itype rangeSize = (MAXNUM - sqrtMAXNUM) / numberSieves;
+		for (int i = 0; i < numberSieves; i++)
 		{
-			// Cross out all multiples
-			for (itype i = p * p; ; i += p)
+			sievesArray[i] = new sieve(primeUsers[i], sqrtMAXNUM + i * rangeSize, sqrtMAXNUM + i * rangeSize + rangeSize);
+			sievesArray[i]->start();
+		}
+		
+		itype p = 2;
+		itype numprimes = 0;
+		do
+		{
+			// Send to all users
+			for (int i = 0; i < numberSieves; i++)
+			{
+				asend(primeUsers[i], p);
+			}
+
+			for (itype i = p * p; i < sqrtMAXNUM; i += p)
 			{
 				numbers[i] = 1;
-				if (i > end - p)
-					break;
+			}
+
+			// Find next prime
+			p++;
+			while (p < sqrtSqrtMAXNUM && numbers[p] != 0)
+				p++;
+
+		} while (p < sqrtSqrtMAXNUM);
+
+		// Send the rest of the first sqrtMAXNUM primes to the users
+		while (p < sqrtMAXNUM)
+		{
+			// Send to all users
+			for (int i = 0; i < numberSieves; i++)
+			{
+				asend(primeUsers[i], p);
 			}
 
 			// Find next prime
 			p++;
 			while (p < sqrtMAXNUM && numbers[p] != 0)
 				p++;
-			if (p > gate)
-			{
-				cout << "Current prime " << p << " is larger than " << gate << endl;
-				gate <<= 1;
-			}
+		}
 
-			// Send this prime to the dispatcher
-			if (p < sqrtMAXNUM)
+		// Send end marker to all users
+		for (int i = 0; i < numberSieves; i++)
+		{
+			send(primeUsers[i], MAXNUM);
+		}
+
+
+		agent::wait_for_all(numberSieves, sievesArray);
+
+		// First my own primes
+		for (p = 2; p < sqrtMAXNUM; p++)
+		{
+			if (numbers[p] == 0)
 			{
-				send(outputPrimes, p);
-				// Wait for the next prime
-				p = receive(inputPrimes);
+				// cout << p << " ";
+				numprimes++;
 			}
 		}
 
-		// Remaining primes in sieve must also be sent
-		do
+		// Now harvest the primes from all the sieves
+		for (int s = 0; s < numberSieves; s++)
 		{
-			while (p < MAXNUM && numbers[p] != 0)
-				p++;
-			send(outputPrimes, p);
-			p++;
-		} while (p < MAXNUM);
+			for (itype i = 0; i < rangeSize; i++, p++)
+			{
+				if (((sieve*)sievesArray[s])->numbers[i] == 0)
+				{
+					// cout << p << " ";
+					numprimes++;
+				}
+			}
+		}
 
-		send(outputPrimes, MAXNUM);
-
+		cout << endl << numprimes << " primtal" << endl;
 		done();
 	};
 };
 
 int main()
 {
-	unbounded_buffer<itype> primes;
-
-	unbounded_buffer<itype>* users[numberSieves];
-
-	for (int i = 0; i < numberSieves; i++)
-	{
-		users[i] = new unbounded_buffer<itype>;
-	}
-
-	starter first(primes, users, numberSieves);
-
-	sieve sieve1(*users[0], primes);
+	starter first;
 
 	first.start();
-	sieve1.start();
 
 	agent::wait(&first);
-	agent::wait(&sieve1);
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

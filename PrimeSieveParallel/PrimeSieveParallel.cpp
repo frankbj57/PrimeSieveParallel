@@ -12,11 +12,12 @@ using namespace concurrency;
 using namespace std;
 
 typedef unsigned long long int itype;
-const itype maxRangeSize = 0x100000000ULL - 1;
+itype maxRangeSize = 0x100000000ULL - 1;
 // const itype maxRangeSize = 1238;
 const int MAXSIEVES = 32;
 int numberSieves = MAXSIEVES;
-const itype MAXNUM =     100000000000ULL;
+//                        123456789012345
+const itype MAXNUM =     1000000000ULL;
 
 class sieve : public agent
 {
@@ -266,6 +267,18 @@ int main()
 	GetSystemInfo(&systemInfo);
 
 	numberSieves = systemInfo.dwNumberOfProcessors;
+
+	// Available amount of physical memory to avoid paging
+	MEMORYSTATUSEX memoryInfo;
+	memoryInfo.dwLength = sizeof(memoryInfo);
+	GlobalMemoryStatusEx(&memoryInfo);
+
+	maxRangeSize = memoryInfo.ullAvailPhys / numberSieves;
+	if (maxRangeSize > (0xffffffffULL))
+	{
+		// C++ new only allows 4GB-1 for allocation
+		maxRangeSize = 0xffffffffULL;
+	}
 
 	cout << "Searching for primes less than " << MAXNUM << endl;
 	cout << "Using " << numberSieves << " parallel sieves" << endl;

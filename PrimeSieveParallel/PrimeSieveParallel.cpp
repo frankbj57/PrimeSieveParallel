@@ -2,6 +2,7 @@
 //
 
 #include <iostream>
+#include <iomanip>
 #include <algorithm>
 #include <agents.h>
 
@@ -11,13 +12,44 @@
 using namespace concurrency;
 using namespace std;
 
+#include "optionparser.h"
+
+struct Arg : public option::Arg
+{
+	static option::ArgStatus Required(const option::Option& option, bool)
+	{
+		return option.arg == 0 ? option::ARG_ILLEGAL : option::ARG_OK;
+	}
+};
+
+enum  optionIndex { UNKNOWN, SIEVES, MEMORY, ROUNDS, PRIME, HELP };
+
+const option::Descriptor usage[] = {
+{ UNKNOWN,  0, "", "",            Arg::None, "USAGE: primesieveparallel [options]\n\n"
+										  "Options:" },
+{ HELP,     0, "h", "help",      Arg::None,    "  \t--help  \tPrint usage and exit." },
+{ SIEVES,   0, "s","sieves",    Arg::Required,"  -s <arg>, \t--sieves=<arg>"
+										  "  \tMaximum number of sieves. Default is number of logical CPU cores" },
+{ MEMORY,   0, "m","memory",    Arg::Required,"  -m<arg>, \t--memory=<arg>  \tMaximum amount of memory to use"
+										  "  \t [-]<amount>[%]. Default is free physical RAM"
+										  "  \t either absolute max, or '-' deduct from free physical RAM. '%' means this is in percent of that" },
+{ ROUNDS,   0, "r","rounds",    Arg::Required, "  -r <num>, \t--rounds=<num>  \tMinimum number of rounds of sieves" },
+{ PRIME,    0, "p","prime",     Arg::Required,"  -p <arg>, \t--prime=<arg>"
+										  "  \tFind primes up to this number" },
+{ UNKNOWN,  0, "", "",          Arg::None,
+ "\nExamples:\n"
+ "  primesieveparallel -s4 -m-5% -p 1000000\n"
+},
+{ 0, 0, 0, 0, 0, 0 } }; // End of table
+
+
 typedef unsigned long long int itype;
 itype maxRangeSize = 0x100000000ULL - 1;
 // const itype maxRangeSize = 1238;
 const int MAXSIEVES = 32;
 int numberSieves = MAXSIEVES;
 //                        123456789012345
-const itype MAXNUM =     1000000000ULL;
+const itype MAXNUM =     100000000000ULL;
 
 class sieve : public agent
 {
@@ -256,8 +288,68 @@ private:
 	};
 };
 
-int main()
+
+
+
+int main(int argc, char *argv[])
 {
+	argc -= (argc > 0); argv += (argc > 0); // skip program name argv[0] if present
+	option::Stats  stats(usage, argc, argv);
+	std::vector<option::Option> options(stats.options_max);
+	std::vector<option::Option> buffer(stats.buffer_max);
+	option::Parser parse(true, usage, argc, argv, &options[0], &buffer[0]);
+
+	if (parse.error())
+		return 1;
+
+	if (options[HELP] || argc == 0) {
+		option::printUsage(std::cout, usage, 40);
+		return 0;
+	}
+
+
+	for (int i = 0; i < parse.optionsCount(); ++i)
+	{
+		option::Option& opt = buffer[i];
+		fprintf(stdout, "Argument #%d is ", i);
+		switch (opt.index())
+		{
+		case HELP:
+			// not possible, because handled further above and exits the program
+		case SIEVES:
+			if (opt.arg)
+				fprintf(stdout, "--sieves with optional argument '%s'\n", opt.arg);
+			else
+				fprintf(stdout, "--sieves without the optional argument\n");
+			break;
+		case MEMORY:
+			if (opt.arg)
+				fprintf(stdout, "--memory with optional argument '%s'\n", opt.arg);
+			else
+				fprintf(stdout, "--memory without the optional argument\n");
+			break;
+		case PRIME:
+			if (opt.arg)
+				fprintf(stdout, "--prime with optional argument '%s'\n", opt.arg);
+			else
+				fprintf(stdout, "--prime without the optional argument\n");
+			break;
+		case ROUNDS:
+			if (opt.arg)
+				fprintf(stdout, "--rounds with optional argument '%s'\n", opt.arg);
+			else
+				fprintf(stdout, "--rounds without the optional argument\n");
+			break;
+		}
+	}
+
+
+	for (option::Option* opt = options[UNKNOWN]; opt; opt = opt->next())
+		std::cout << "Unknown option: " << std::string(opt->name, opt->namelen) << "\n";
+
+	for (int i = 0; i < parse.nonOptionsCount(); ++i)
+		std::cout << "Non-option #" << i << ": " << parse.nonOption(i) << std::endl;
+
 	unsigned long long start = GetTickCount64();
 
 	starter first;
@@ -267,6 +359,16 @@ int main()
 	GetSystemInfo(&systemInfo);
 
 	numberSieves = systemInfo.dwNumberOfProcessors;
+
+	if (options[SIEVES])
+	{
+		int sieves = std::atol(options[SIEVES].arg);
+
+		if (sieves > 0 && sieves < numberSieves)
+			numberSieves = sieves;
+	}
+
+	numberSieves = min(MAXSIEVES, numberSieves);
 
 	// Available amount of physical memory to avoid paging
 	MEMORYSTATUSEX memoryInfo;

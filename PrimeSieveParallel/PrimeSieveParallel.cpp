@@ -49,7 +49,7 @@ itype maxRangeSize = 0x100000000ULL - 1;
 const int MAXSIEVES = 32;
 int numberSieves = MAXSIEVES;
 //                        123456789012345
-const itype MAXNUM =     100000000000ULL;
+const itype MaxNum =     100000000000ULL;
 
 class sieve : public agent
 {
@@ -113,7 +113,7 @@ private:
 		}
 
 		// Remaining primes must also be received
-		while (p < MAXNUM)
+		while (p < MaxNum)
 		{
 			p = receive(inputPrimes);
 		}
@@ -137,21 +137,21 @@ private:
 		unbounded_buffer<itype> primeUsers[MAXSIEVES];
 
 		// Calculate how many primes the starter must calculate on its own
-		itype sqrtMAXNUM = sqrt(double(MAXNUM)) + 1;
-		itype sqrtSqrtMAXNUM = sqrt((double)sqrtMAXNUM) + 1;
+		itype sqrtMaxNum = sqrt(double(MaxNum)) + 1;
+		itype sqrtSqrtMaxNum = sqrt((double)sqrtMaxNum) + 1;
 
 		cout << endl;
-		cout << "Initial sieve size: " << sqrtMAXNUM << endl;
-		cout << "Initial sieve seeding prime size: " << sqrtSqrtMAXNUM << endl;
+		cout << "Initial sieve size: " << sqrtMaxNum << endl;
+		cout << "Initial sieve seeding prime size: " << sqrtSqrtMaxNum << endl;
 
 		// Prepare the primary sieve in the starter
-		char* numbers = new char[sqrtMAXNUM];
-		for (itype i = 0; i < sqrtMAXNUM; i++)
+		char* numbers = new char[sqrtMaxNum];
+		for (itype i = 0; i < sqrtMaxNum; i++)
 			numbers[i] = 0;
 
 		// Calculate the number of rounds and sieves on the basis of the max range
 		// This is decided by the maximum number of bytes new char[] can allocate
-		int totalSieves = (MAXNUM-sqrtMAXNUM+maxRangeSize-1) / maxRangeSize;
+		int totalSieves = (MaxNum-sqrtMaxNum+maxRangeSize-1) / maxRangeSize;
 		if (totalSieves < 1)
 			totalSieves = 1;
 		// Round to multiple of numberSieves per round
@@ -162,7 +162,7 @@ private:
 		cout << "Number of rounds: " << rounds << endl;
 		cout << "Total number of sieves: " << totalSieves << endl;
 
-		itype rangeSize = (MAXNUM - sqrtMAXNUM) / totalSieves;
+		itype rangeSize = (MaxNum - sqrtMaxNum) / totalSieves;
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize;
@@ -176,7 +176,7 @@ private:
 
 			for (int i = 0; i < numberSieves; i++)
 			{
-				itype start = sqrtMAXNUM + (round * numberSieves + i) * rangeSize;
+				itype start = sqrtMaxNum + (round * numberSieves + i) * rangeSize;
 				itype end = start + rangeSize;
 
 				sievesArray[i] = 
@@ -193,7 +193,7 @@ private:
 
 			itype p = 2;
 
-			// In the first round, calculate the first sqrtMAXNUM primes on the fly
+			// In the first round, calculate the first sqrtMaxNum primes on the fly
 			if (round == 0)
 			{
 				do
@@ -205,24 +205,24 @@ private:
 						asend(primeUsers[i], p);
 					}
 
-					for (itype i = p * p; i < sqrtMAXNUM; i += p)
+					for (itype i = p * p; i < sqrtMaxNum; i += p)
 					{
 						numbers[i] = 1;
 					}
 
 					// Find next prime
 					p++;
-					while (p < sqrtSqrtMAXNUM && numbers[p] != 0)
+					while (p < sqrtSqrtMaxNum && numbers[p] != 0)
 						p++;
 
-				} while (p < sqrtSqrtMAXNUM);
+				} while (p < sqrtSqrtMaxNum);
 
 				// Make sure p is prime again
-				while (p < sqrtMAXNUM && numbers[p] != 0)
+				while (p < sqrtMaxNum && numbers[p] != 0)
 					p++;
 
 				// Count my own primes
-				for (int i = pp = 2; i < sqrtMAXNUM; i++, pp++)
+				for (int i = pp = 2; i < sqrtMaxNum; i++, pp++)
 				{
 					if (numbers[i] == 0)
 					{
@@ -234,9 +234,9 @@ private:
 				cout << "Initial sieve number of primes: " << numprimes << endl;
 			}
 
-			// Send the rest of the first sqrtMAXNUM primes to the users
+			// Send the rest of the first sqrtMaxNum primes to the users
 			// In rounds after round 0, get all primes from this loop
-			while (p < sqrtMAXNUM)
+			while (p < sqrtMaxNum)
 			{
 				// Send to all users
 				// cout << "Sending " << p << endl;
@@ -247,14 +247,14 @@ private:
 
 				// Find next prime
 				p++;
-				while (p < sqrtMAXNUM && numbers[p] != 0)
+				while (p < sqrtMaxNum && numbers[p] != 0)
 					p++;
 			}
 
 			// Send end marker to all users
 			for (int i = 0; i < numberSieves; i++)
 			{
-				send(primeUsers[i], MAXNUM);
+				send(primeUsers[i], MaxNum);
 			}
 
 			agent::wait_for_all(numberSieves, sievesArray);
@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
 		maxRangeSize = 0xffffffffULL;
 	}
 
-	cout << "Searching for primes less than " << MAXNUM << endl;
+	cout << "Searching for primes less than " << MaxNum << endl;
 	cout << "Using " << numberSieves << " parallel sieves" << endl;
 	cout << "Each with a max range of " << maxRangeSize << endl << endl;
 

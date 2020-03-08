@@ -48,8 +48,10 @@ itype maxRangeSize = 0x100000000ULL - 1;
 // const itype maxRangeSize = 1238;
 const int MAXSIEVES = 32;
 int numberSieves = MAXSIEVES;
-//                        123456789012345
-const itype MaxNum =     100000000000ULL;
+//                  123456789012345
+itype MaxNum =     10000000000ULL;
+
+unsigned long long int maxMemory = 0xFFFFFFFFFFFFFFFFULL;
 
 class sieve : public agent
 {
@@ -302,7 +304,7 @@ int main(int argc, char *argv[])
 	if (parse.error())
 		return 1;
 
-	if (options[HELP] || argc == 0) {
+	if (options[HELP]) {
 		option::printUsage(std::cout, usage, 40);
 		return 0;
 	}
@@ -380,6 +382,15 @@ int main(int argc, char *argv[])
 	{
 		// C++ new only allows 4GB-1 for allocation
 		maxRangeSize = 0xffffffffULL;
+	}
+
+
+	if (options[PRIME])
+	{
+		itype maxnum = (itype)atoll(options[PRIME].arg);
+
+		if (maxnum > 0)
+			MaxNum = maxnum;
 	}
 
 	cout << "Searching for primes less than " << MaxNum << endl;

@@ -44,14 +44,18 @@ const option::Descriptor usage[] = {
 
 
 typedef unsigned long long int itype;
-itype maxRangeSize = 0x100000000ULL - 1;
-// const itype maxRangeSize = 1238;
+
 const int MAXSIEVES = 32;
 int numberSieves = MAXSIEVES;
-//                  123456789012345
-itype MaxNum =     10000000000ULL;
 
+// Range to survey/sift
+//              123456789012345
+itype MaxNum = 1000000000ULL;
+
+// How much RAM to use
 unsigned long long int maxMemory = 0xFFFFFFFFFFFFFFFFULL;
+
+int minRounds = 1;
 
 class sieve : public agent
 {
@@ -67,6 +71,8 @@ public:
 	{
 		delete[] numbers;
 	}
+
+	itype getRangeSize() const { return end - startRange; }
 
 private:
 	ISource<itype>& inputPrimes;
@@ -132,43 +138,59 @@ public:
 	};
 
 private:
+	sieve* sievesArray[MAXSIEVES];
+
+	unbounded_buffer<itype> primeUsers[MAXSIEVES];
+
 	void run()
 	{
-		agent* sievesArray[MAXSIEVES];
-
-		unbounded_buffer<itype> primeUsers[MAXSIEVES];
+		itype maxRangeSize = 0x100000000ULL - 1;
 
 		// Calculate how many primes the starter must calculate on its own
 		itype sqrtMaxNum = sqrt(double(MaxNum)) + 1;
 		itype sqrtSqrtMaxNum = sqrt((double)sqrtMaxNum) + 1;
-
-		cout << endl;
-		cout << "Initial sieve size: " << sqrtMaxNum << endl;
-		cout << "Initial sieve seeding prime size: " << sqrtSqrtMaxNum << endl;
 
 		// Prepare the primary sieve in the starter
 		char* numbers = new char[sqrtMaxNum];
 		for (itype i = 0; i < sqrtMaxNum; i++)
 			numbers[i] = 0;
 
+		unsigned long long int startUse = sizeof(starter) + sqrtMaxNum;
+		maxRangeSize = (maxMemory - startUse) / numberSieves;
+		if (maxRangeSize > (0xffffffffULL))
+		{
+			// C++ new only allows 4GB-1 for allocation
+			maxRangeSize = 0xffffffffULL;
+		}
+
+		cout << "Each with a max range of " << maxRangeSize << endl << endl;
+		cout << endl;
+		cout << "Initial sieve size: " << sqrtMaxNum << endl;
+		cout << "Initial sieve seeding prime size: " << sqrtSqrtMaxNum << endl;
+
 		// Calculate the number of rounds and sieves on the basis of the max range
 		// This is decided by the maximum number of bytes new char[] can allocate
-		int totalSieves = (MaxNum-sqrtMaxNum+maxRangeSize-1) / maxRangeSize;
+		int totalSieves = (MaxNum - sqrtMaxNum + maxRangeSize - 1) / maxRangeSize;
 		if (totalSieves < 1)
 			totalSieves = 1;
+		
 		// Round to multiple of numberSieves per round
 		int rounds = (totalSieves + numberSieves - 1) / numberSieves;
+		if (rounds < minRounds)
+			rounds = minRounds;
+
 		totalSieves = rounds * numberSieves;
 
 		cout << endl;
 		cout << "Number of rounds: " << rounds << endl;
 		cout << "Total number of sieves: " << totalSieves << endl;
 
+
 		itype rangeSize = (MaxNum - sqrtMaxNum) / totalSieves;
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize;
-			   
+
 		itype numprimes = 0;
 		itype pp = 0;
 		for (int round = 0; round < rounds; round++)
@@ -181,10 +203,13 @@ private:
 				itype start = sqrtMaxNum + (round * numberSieves + i) * rangeSize;
 				itype end = start + rangeSize;
 
-				sievesArray[i] = 
+				if ((round == rounds - 1) && (i == numberSieves - 1))
+					end = MaxNum;
+
+				sievesArray[i] =
 					new sieve(
-						primeUsers[i], 
-						start, 
+						primeUsers[i],
+						start,
 						end);
 
 				cout << "Making sieve " << round * numberSieves + i
@@ -214,7 +239,7 @@ private:
 
 					// Find next prime
 					p++;
-					while (p < sqrtSqrtMaxNum && numbers[p] != 0)
+					while (p < sqrtSqrtMaxNum && (numbers[p] != 0))
 						p++;
 
 				} while (p < sqrtSqrtMaxNum);
@@ -259,15 +284,17 @@ private:
 				send(primeUsers[i], MaxNum);
 			}
 
-			agent::wait_for_all(numberSieves, sievesArray);
+			agent::wait_for_all(numberSieves, (agent**) sievesArray);
 
 			// Now harvest the primes from all the sieves
 			for (int s = 0; s < numberSieves; s++)
 			{
 				itype sievePrimes = 0;
+				itype sieveSize = sievesArray[s]->getRangeSize();
+				char* pNumbers = ((sieve*)sievesArray[s])->numbers;
 				for (itype i = 0; i < rangeSize; i++, pp++)
 				{
-					if (((sieve*)sievesArray[s])->numbers[i] == 0)
+					if (pNumbers[i] == 0)
 					{
 						// cout << pp << " ";
 						sievePrimes++;
@@ -293,64 +320,28 @@ private:
 
 
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
+	// Imbue with thousand separators because we have big numbers
+	std::cout.imbue(std::locale("dk_DK"));
+	// std::cout.imbue(std::locale(std::locale, new numpunct<char>()));
+
 	argc -= (argc > 0); argv += (argc > 0); // skip program name argv[0] if present
 	option::Stats  stats(usage, argc, argv);
 	std::vector<option::Option> options(stats.options_max);
 	std::vector<option::Option> buffer(stats.buffer_max);
 	option::Parser parse(true, usage, argc, argv, &options[0], &buffer[0]);
 
-	if (parse.error())
-		return 1;
-
-	if (options[HELP]) {
-		option::printUsage(std::cout, usage, 40);
-		return 0;
-	}
-
-
-	for (int i = 0; i < parse.optionsCount(); ++i)
-	{
-		option::Option& opt = buffer[i];
-		fprintf(stdout, "Argument #%d is ", i);
-		switch (opt.index())
-		{
-		case HELP:
-			// not possible, because handled further above and exits the program
-		case SIEVES:
-			if (opt.arg)
-				fprintf(stdout, "--sieves with optional argument '%s'\n", opt.arg);
-			else
-				fprintf(stdout, "--sieves without the optional argument\n");
-			break;
-		case MEMORY:
-			if (opt.arg)
-				fprintf(stdout, "--memory with optional argument '%s'\n", opt.arg);
-			else
-				fprintf(stdout, "--memory without the optional argument\n");
-			break;
-		case PRIME:
-			if (opt.arg)
-				fprintf(stdout, "--prime with optional argument '%s'\n", opt.arg);
-			else
-				fprintf(stdout, "--prime without the optional argument\n");
-			break;
-		case ROUNDS:
-			if (opt.arg)
-				fprintf(stdout, "--rounds with optional argument '%s'\n", opt.arg);
-			else
-				fprintf(stdout, "--rounds without the optional argument\n");
-			break;
-		}
-	}
-
-
 	for (option::Option* opt = options[UNKNOWN]; opt; opt = opt->next())
 		std::cout << "Unknown option: " << std::string(opt->name, opt->namelen) << "\n";
 
 	for (int i = 0; i < parse.nonOptionsCount(); ++i)
 		std::cout << "Non-option #" << i << ": " << parse.nonOption(i) << std::endl;
+
+	if (parse.error() || options[HELP] || options[UNKNOWN] || parse.nonOptionsCount()) {
+		option::printUsage(std::cout, usage, 40);
+		return 1;
+	}
 
 	unsigned long long start = GetTickCount64();
 
@@ -377,13 +368,34 @@ int main(int argc, char *argv[])
 	memoryInfo.dwLength = sizeof(memoryInfo);
 	GlobalMemoryStatusEx(&memoryInfo);
 
-	maxRangeSize = memoryInfo.ullAvailPhys / numberSieves;
-	if (maxRangeSize > (0xffffffffULL))
-	{
-		// C++ new only allows 4GB-1 for allocation
-		maxRangeSize = 0xffffffffULL;
-	}
+	maxMemory = memoryInfo.ullAvailPhys;
 
+	if (options[MEMORY])
+	{
+		long long int memory = 0;
+		const char* pMem = options[MEMORY].arg;
+		memory = atoll(pMem);
+		if (memory < 0)
+			memory = -memory;
+
+		if (pMem[strlen(pMem) - 1] == '%')
+		{
+			// Percentage of available memory
+			// Convert percentage to absolute value
+			memory = maxMemory * memory / 100;
+		}
+
+		if (*pMem == '-')
+		{
+			// Deduct from maximum
+			maxMemory -= memory;
+		}
+		else
+		{
+			// Take straight value
+			maxMemory = memory;
+		}
+	}
 
 	if (options[PRIME])
 	{
@@ -393,9 +405,18 @@ int main(int argc, char *argv[])
 			MaxNum = maxnum;
 	}
 
+	if (options[ROUNDS])
+	{
+		minRounds = atol(options[ROUNDS].arg);
+		if (minRounds < 0)
+			minRounds = -minRounds;
+
+		if (minRounds < 1)
+			minRounds = 1;
+	}
+
 	cout << "Searching for primes less than " << MaxNum << endl;
 	cout << "Using " << numberSieves << " parallel sieves" << endl;
-	cout << "Each with a max range of " << maxRangeSize << endl << endl;
 
 	first.start();
 

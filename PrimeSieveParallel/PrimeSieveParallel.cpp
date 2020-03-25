@@ -292,7 +292,7 @@ private:
 				itype sievePrimes = 0;
 				itype sieveSize = sievesArray[s]->getRangeSize();
 				char* pNumbers = ((sieve*)sievesArray[s])->numbers;
-				for (itype i = 0; i < rangeSize; i++, pp++)
+				for (itype i = 0; i < sieveSize; i++ /* , pp++ */)
 				{
 					if (pNumbers[i] == 0)
 					{

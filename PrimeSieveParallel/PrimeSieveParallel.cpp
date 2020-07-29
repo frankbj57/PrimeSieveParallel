@@ -192,7 +192,6 @@ private:
 		cout << "Range for each sieve: " << rangeSize;
 
 		itype numprimes = 0;
-		itype pp = 0;
 		for (int round = 0; round < rounds; round++)
 		{
 			cout << endl;
@@ -249,11 +248,10 @@ private:
 					p++;
 
 				// Count my own primes
-				for (int i = pp = 2; i < sqrtMaxNum; i++, pp++)
+				for (int i = 2; i < sqrtMaxNum; i++)
 				{
 					if (numbers[i] == 0)
 					{
-						// cout << pp << " ";
 						numprimes++;
 					}
 				}
@@ -292,11 +290,10 @@ private:
 				itype sievePrimes = 0;
 				itype sieveSize = sievesArray[s]->getRangeSize();
 				char* pNumbers = ((sieve*)sievesArray[s])->numbers;
-				for (itype i = 0; i < sieveSize; i++ /* , pp++ */)
+				for (itype i = 0; i < sieveSize; i++)
 				{
 					if (pNumbers[i] == 0)
 					{
-						// cout << pp << " ";
 						sievePrimes++;
 					}
 				}
@@ -424,7 +421,7 @@ int main(int argc, char* argv[])
 
 	start = GetTickCount64() - start;
 
-	cout << "Total time: " << (double)(start / 1000) << " seconds" << endl;
+	cout << "Total time: " << (double)(start) / 1000 << " seconds" << endl;
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

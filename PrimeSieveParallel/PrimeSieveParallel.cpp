@@ -200,9 +200,37 @@ private:
 		itype rangeSize = (MaxNum - sqrtMaxNum) / totalSieves;
 
 		cout << endl;
-		cout << "Range for each sieve: " << rangeSize;
+		cout << "Range for each sieve: " << rangeSize << endl;
 
 		itype numprimes = 0;
+
+		// Calculate the first sqrtMaxNum primes
+		itype p = 2;
+		do
+		{
+			for (itype i = p * p; i < sqrtMaxNum; i += p)
+			{
+				numbers[i] = 1;
+			}
+
+			// Find next prime
+			p++;
+			while (p < sqrtSqrtMaxNum && (numbers[p] != 0))
+				p++;
+
+		} while (p < sqrtSqrtMaxNum);
+
+		// Count my own primes
+		for (int i = 2; i < sqrtMaxNum; i++)
+		{
+			if (numbers[i] == 0)
+			{
+				numprimes++;
+			}
+		}
+
+		cout << "Initial sieve number of primes: " << numprimes << endl;
+
 		for (int round = 0; round < rounds; round++)
 		{
 			cout << endl;
@@ -228,50 +256,9 @@ private:
 				sievesArray[i]->start();
 			}
 
-			itype p = 2;
+			p = 2;
 
-			// In the first round, calculate the first sqrtMaxNum primes on the fly
-			if (round == 0)
-			{
-				do
-				{
-					// Send to all users
-					// cout << "Sending " << p << endl;
-					for (int i = 0; i < numberSieves; i++)
-					{
-						asend(primeUsers[i], p);
-					}
-
-					for (itype i = p * p; i < sqrtMaxNum; i += p)
-					{
-						numbers[i] = 1;
-					}
-
-					// Find next prime
-					p++;
-					while (p < sqrtSqrtMaxNum && (numbers[p] != 0))
-						p++;
-
-				} while (p < sqrtSqrtMaxNum);
-
-				// Make sure p is prime again
-				while (p < sqrtMaxNum && numbers[p] != 0)
-					p++;
-
-				// Count my own primes
-				for (int i = 2; i < sqrtMaxNum; i++)
-				{
-					if (numbers[i] == 0)
-					{
-						numprimes++;
-					}
-				}
-
-				cout << "Initial sieve number of primes: " << numprimes << endl;
-			}
-
-			// Send the rest of the first sqrtMaxNum primes to the users
-			// In rounds after round 0, get all primes from this loop
+			// Send the primes from this loop
 			while (p < sqrtMaxNum)
 			{
 				// Send to all users

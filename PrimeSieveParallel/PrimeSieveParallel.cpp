@@ -60,8 +60,8 @@ int minRounds = 1;
 class sieve : public agent
 {
 public:
-	sieve(ISource<itype>& primes, itype startRange, itype endRange)
-		: inputPrimes(primes), startRange(startRange), end(endRange)
+	sieve(char *primes, itype numPrimes, itype startRange, itype endRange)
+		: inputPrimes(primes), numPrimes(numPrimes), startRange(startRange), end(endRange)
 	{
 	};
 
@@ -75,9 +75,32 @@ public:
 	itype count = 0;
 
 private:
-	ISource<itype>& inputPrimes;
+	char *inputPrimes;
 	itype startRange, end;
 	char* numbers = nullptr;
+	itype numPrimes;
+
+	itype nextPrime = 2;
+
+	// Get the next prime from the common list
+	// return MaxNum on end
+	itype receive()
+	{
+		itype currentPrime = nextPrime;
+
+		if (currentPrime < numPrimes)
+		{
+			// Make the next prime ready
+
+			nextPrime++;
+			while (nextPrime < numPrimes && inputPrimes[nextPrime] != 0)
+				nextPrime++;
+
+			return currentPrime;
+		}
+		else
+			return MaxNum;
+	}
 
 	void run()
 	{
@@ -90,7 +113,7 @@ private:
 		itype p = 2;
 
 		// Wait for the first prime
-		p = receive(inputPrimes);
+		p = receive();
 
 		while (p < sqrtEnd)
 		{
@@ -118,13 +141,13 @@ private:
 				}
 			}
 
-			p = receive(inputPrimes);
+			p = receive();
 		}
 
 		// Remaining primes must also be received
 		while (p < MaxNum)
 		{
-			p = receive(inputPrimes);
+			p = receive();
 		}
 
 		// Count my primes
@@ -150,8 +173,6 @@ public:
 
 private:
 	sieve* sievesArray[MAXSIEVES];
-
-	unbounded_buffer<itype> primeUsers[MAXSIEVES];
 
 	void run()
 	{
@@ -246,7 +267,8 @@ private:
 
 				sievesArray[i] =
 					new sieve(
-						primeUsers[i],
+						numbers,
+						sqrtMaxNum,
 						start,
 						end);
 
@@ -254,30 +276,6 @@ private:
 					<< " with start " << start
 					<< " and end " << end << endl;
 				sievesArray[i]->start();
-			}
-
-			p = 2;
-
-			// Send the primes from this loop
-			while (p < sqrtMaxNum)
-			{
-				// Send to all users
-				// cout << "Sending " << p << endl;
-				for (int i = 0; i < numberSieves; i++)
-				{
-					asend(primeUsers[i], p);
-				}
-
-				// Find next prime
-				p++;
-				while (p < sqrtMaxNum && numbers[p] != 0)
-					p++;
-			}
-
-			// Send end marker to all users
-			for (int i = 0; i < numberSieves; i++)
-			{
-				send(primeUsers[i], MaxNum);
 			}
 
 			agent::wait_for_all(numberSieves, (agent**) sievesArray);

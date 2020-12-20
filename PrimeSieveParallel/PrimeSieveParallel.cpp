@@ -65,8 +65,6 @@ public:
 	{
 	};
 
-	char* numbers = nullptr;
-
 	~sieve()
 	{
 		delete[] numbers;
@@ -74,9 +72,12 @@ public:
 
 	itype getRangeSize() const { return end - startRange; }
 
+	itype count = 0;
+
 private:
 	ISource<itype>& inputPrimes;
 	itype startRange, end;
+	char* numbers = nullptr;
 
 	void run()
 	{
@@ -124,6 +125,16 @@ private:
 		while (p < MaxNum)
 		{
 			p = receive(inputPrimes);
+		}
+
+		// Count my primes
+		itype sieveSize = getRangeSize();
+		for (itype i = 0; i < sieveSize; i++)
+		{
+			if (numbers[i] == 0)
+			{
+				count++;
+			}
 		}
 
 		done();
@@ -287,16 +298,7 @@ private:
 			// Now harvest the primes from all the sieves
 			for (int s = 0; s < numberSieves; s++)
 			{
-				itype sievePrimes = 0;
-				itype sieveSize = sievesArray[s]->getRangeSize();
-				char* pNumbers = ((sieve*)sievesArray[s])->numbers;
-				for (itype i = 0; i < sieveSize; i++)
-				{
-					if (pNumbers[i] == 0)
-					{
-						sievePrimes++;
-					}
-				}
+				itype sievePrimes = sievesArray[s]->count;
 				numprimes += sievePrimes;
 
 				cout << "Sieve " << round * numberSieves + s << " has " << sievePrimes << " primes" << endl;

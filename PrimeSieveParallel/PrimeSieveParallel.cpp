@@ -144,12 +144,6 @@ private:
 			p = receive();
 		}
 
-		// Remaining primes must also be received
-		while (p < MaxNum)
-		{
-			p = receive();
-		}
-
 		// Count my primes
 		itype sieveSize = getRangeSize();
 		for (itype i = 0; i < sieveSize; i++)

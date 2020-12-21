@@ -60,7 +60,7 @@ int minRounds = 1;
 class sieve : public agent
 {
 public:
-	sieve(char *primes, itype numPrimes, itype startRange, itype endRange)
+	sieve(itype *primes, itype numPrimes, itype startRange, itype endRange)
 		: inputPrimes(primes), numPrimes(numPrimes), startRange(startRange), end(endRange)
 	{
 	};
@@ -75,26 +75,24 @@ public:
 	itype count = 0;
 
 private:
-	char *inputPrimes;
+	itype *inputPrimes;
 	itype startRange, end;
 	char* numbers = nullptr;
 	itype numPrimes;
 
-	itype nextPrime = 2;
+	itype nextPrime = 0;
 
 	// Get the next prime from the common list
 	// return MaxNum on end
 	itype receive()
 	{
-		itype currentPrime = nextPrime;
-
-		if (currentPrime < numPrimes)
+		if (nextPrime < numPrimes)
 		{
+			itype currentPrime = inputPrimes[nextPrime];
+
 			// Make the next prime ready
 
 			nextPrime++;
-			while (nextPrime < numPrimes && inputPrimes[nextPrime] != 0)
-				nextPrime++;
 
 			return currentPrime;
 		}
@@ -246,6 +244,23 @@ private:
 
 		cout << "Initial sieve number of primes: " << numprimes << endl;
 
+		// Put them in a list
+		itype initialNumPrimes = numprimes;
+		itype* initialPrimes = new itype[numprimes];
+		itype index = 0;
+		for (int i = 2; i < sqrtMaxNum; i++)
+		{
+			if (numbers[i] == 0)
+			{
+				initialPrimes[index] = i;
+				index++;
+			}
+		}
+
+		// The initial sieve can be deleted
+		delete[] numbers;
+		numbers = nullptr;
+
 		for (int round = 0; round < rounds; round++)
 		{
 			cout << endl;
@@ -261,8 +276,8 @@ private:
 
 				sievesArray[i] =
 					new sieve(
-						numbers,
-						sqrtMaxNum,
+						initialPrimes,
+						initialNumPrimes,
 						start,
 						end);
 

@@ -60,8 +60,8 @@ int minRounds = 1;
 class sieve : public agent
 {
 public:
-	sieve(itype *primes, itype numPrimes, itype startRange, itype endRange)
-		: inputPrimes(primes), numPrimes(numPrimes), startRange(startRange), end(endRange)
+	sieve(itype *primes, itype numPrimes, itype startRange, itype endRange, ITarget<sieve *> &endChannel)
+		: inputPrimes(primes), numPrimes(numPrimes), startRange(startRange), end(endRange), resultChannel(endChannel)
 	{
 	};
 
@@ -79,6 +79,8 @@ private:
 	itype startRange, end;
 	char* numbers = nullptr;
 	itype numPrimes;
+
+	concurrency::ITarget<sieve*>& resultChannel;
 
 	itype nextPrime = 0;
 
@@ -153,6 +155,8 @@ private:
 		}
 
 		done();
+
+		asend(resultChannel, this);
 	};
 };
 
@@ -164,7 +168,41 @@ public:
 	};
 
 private:
-	sieve* sievesArray[MAXSIEVES];
+	unbounded_buffer<sieve*> resultChannel;
+
+	itype nextSieveStart;
+	itype rangeSize;
+
+	itype initialNumPrimes = 0;
+	itype* initialPrimes = nullptr;
+
+	bool CreateSieve()
+	{
+		if (nextSieveStart >= MaxNum)
+			return false;
+
+		itype end = nextSieveStart + rangeSize;
+
+		if ((MaxNum - end) < rangeSize)
+			end = MaxNum;
+
+		sieve * newSieve = 
+			new sieve(
+				initialPrimes,
+				initialNumPrimes,
+				nextSieveStart,
+				end,
+				resultChannel);
+
+		cout << "Making sieve with start " << nextSieveStart
+			<< " and end " << end << endl;
+
+		nextSieveStart = end;
+
+		newSieve->start();
+
+		return true;
+	}
 
 	void run()
 	{
@@ -210,7 +248,7 @@ private:
 		cout << "Total number of sieves: " << totalSieves << endl;
 
 
-		itype rangeSize = (MaxNum - sqrtMaxNum) / totalSieves;
+		rangeSize = (MaxNum - sqrtMaxNum) / totalSieves;
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;
@@ -245,8 +283,8 @@ private:
 		cout << "Initial sieve number of primes: " << numprimes << endl;
 
 		// Put them in a list
-		itype initialNumPrimes = numprimes;
-		itype* initialPrimes = new itype[numprimes];
+		initialNumPrimes = numprimes;
+		initialPrimes = new itype[numprimes];
 		itype index = 0;
 		for (int i = 2; i < sqrtMaxNum; i++)
 		{
@@ -261,49 +299,46 @@ private:
 		delete[] numbers;
 		numbers = nullptr;
 
-		for (int round = 0; round < rounds; round++)
+		// Start the sieves
+		nextSieveStart = sqrtMaxNum;
+
+		// Create numsieves new sieves
+		int outstandingSieves = 0;
+		for (int i = 0; i < numberSieves; i++)
 		{
-			cout << endl;
-			cout << "Round: " << round << endl;
-
-			for (int i = 0; i < numberSieves; i++)
-			{
-				itype start = sqrtMaxNum + (round * numberSieves + i) * rangeSize;
-				itype end = start + rangeSize;
-
-				if ((round == rounds - 1) && (i == numberSieves - 1))
-					end = MaxNum;
-
-				sievesArray[i] =
-					new sieve(
-						initialPrimes,
-						initialNumPrimes,
-						start,
-						end);
-
-				cout << "Making sieve " << round * numberSieves + i
-					<< " with start " << start
-					<< " and end " << end << endl;
-				sievesArray[i]->start();
-			}
-
-			agent::wait_for_all(numberSieves, (agent**) sievesArray);
-
-			// Now harvest the primes from all the sieves
-			for (int s = 0; s < numberSieves; s++)
-			{
-				itype sievePrimes = sievesArray[s]->count;
-				numprimes += sievePrimes;
-
-				cout << "Sieve " << round * numberSieves + s << " has " << sievePrimes << " primes" << endl;
-			}
-
-			// Remove sieves
-			for (int i = 0; i < numberSieves; i++)
-			{
-				delete sievesArray[i];
-			}
+			if (CreateSieve())
+				outstandingSieves++;
 		}
+
+		int finishedSieves = 0;
+		do
+		{
+			// Wait for a finished sieve
+			sieve* finished = receive(resultChannel);
+
+			finishedSieves++;
+			// Harvest results from the finished sieve
+			itype sievePrimes = finished->count;
+			numprimes += sievePrimes;
+
+			cout << "Sieve " << finishedSieves << " has " << sievePrimes << " primes" << endl;
+
+			// delete it
+			delete finished;
+			finished = nullptr;
+
+			// Replace it with a new one
+			if (CreateSieve())
+			{
+
+			}
+			else
+			{
+				outstandingSieves--;
+			}
+
+
+		} while (outstandingSieves > 0);
 
 		cout << endl << numprimes << " primtal" << endl;
 		done();

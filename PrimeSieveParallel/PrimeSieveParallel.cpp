@@ -183,7 +183,7 @@ private:
 
 		itype end = nextSieveStart + rangeSize;
 
-		if ((MaxNum - end) < rangeSize)
+		if (end > MaxNum)
 			end = MaxNum;
 
 		sieve * newSieve = 
@@ -217,41 +217,8 @@ private:
 		for (itype i = 0; i < sqrtMaxNum; i++)
 			numbers[i] = 0;
 
-		unsigned long long int startUse = sizeof(starter) + sqrtMaxNum;
-		maxRangeSize = (maxMemory - startUse) / numberSieves;
-		if (maxRangeSize > (0xffffffffULL))
-		{
-			// C++ new only allows 4GB-1 for allocation
-			maxRangeSize = 0xffffffffULL;
-		}
-
-		cout << "Each with a max range of " << maxRangeSize << endl << endl;
-		cout << endl;
 		cout << "Initial sieve size: " << sqrtMaxNum << endl;
 		cout << "Initial sieve seeding prime size: " << sqrtSqrtMaxNum << endl;
-
-		// Calculate the number of rounds and sieves on the basis of the max range
-		// This is decided by the maximum number of bytes new char[] can allocate
-		int totalSieves = (MaxNum - sqrtMaxNum + maxRangeSize - 1) / maxRangeSize;
-		if (totalSieves < 1)
-			totalSieves = 1;
-		
-		// Round to multiple of numberSieves per round
-		int rounds = (totalSieves + numberSieves - 1) / numberSieves;
-		if (rounds < minRounds)
-			rounds = minRounds;
-
-		totalSieves = rounds * numberSieves;
-
-		cout << endl;
-		cout << "Number of rounds: " << rounds << endl;
-		cout << "Total number of sieves: " << totalSieves << endl;
-
-
-		rangeSize = (MaxNum - sqrtMaxNum) / totalSieves;
-
-		cout << endl;
-		cout << "Range for each sieve: " << rangeSize << endl;
 
 		itype numprimes = 0;
 
@@ -298,6 +265,23 @@ private:
 		// The initial sieve can be deleted
 		delete[] numbers;
 		numbers = nullptr;
+
+		// Calculate rangesize on the basis of used and max memory
+		unsigned long long int startUse = sizeof(starter) + sizeof(itype)*initialNumPrimes;
+		maxRangeSize = (maxMemory - startUse) / numberSieves;
+		if (maxRangeSize > (0xffffffffULL))
+		{
+			// C++ new only allows 4GB-1 for allocation
+			maxRangeSize = 0xffffffffULL;
+		}
+
+		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum));
+
+		cout << endl;
+		cout << "Range for each sieve: " << rangeSize << endl;
+		cout << "Using " << (MaxNum - sqrtMaxNum) / rangeSize << " sieves" << endl;
+
+		cout << endl;
 
 		// Start the sieves
 		nextSieveStart = sqrtMaxNum;

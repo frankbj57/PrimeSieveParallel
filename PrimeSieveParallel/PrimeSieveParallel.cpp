@@ -130,15 +130,10 @@ private:
 				i = (offset == 0 && p != startRange) ? 0 : (p - offset);
 			}
 
-			if (i < rangeSize)
+			// Beware of overflowing index type - special check of this was removed because of other problems
+			for (; i < rangeSize; i += p)
 			{
-				for (; ; i += p)
-				{
-					numbers[i] = 1;
-					// Do the end condition before the increment, to ensure maximum number range within type
-					if (i >= rangeSize - p)
-						break;
-				}
+				numbers[i] = 1;
 			}
 
 			p = receive();
@@ -279,7 +274,7 @@ private:
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;
-		cout << "Using " << (MaxNum - sqrtMaxNum) / rangeSize << " sieves" << endl;
+		cout << "Using " << (MaxNum - sqrtMaxNum + rangeSize - 1) / rangeSize << " sieves" << endl;
 
 		cout << endl;
 

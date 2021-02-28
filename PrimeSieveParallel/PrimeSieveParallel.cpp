@@ -194,8 +194,8 @@ private:
 				end,
 				resultChannel);
 
-		cout << "Making sieve with start " << nextSieveStart
-			<< " and end " << end << endl;
+		//cout << "Making sieve with start " << nextSieveStart
+		//	<< " and end " << end << endl;
 
 		nextSieveStart = end;
 
@@ -305,7 +305,7 @@ private:
 			itype sievePrimes = finished->count;
 			numprimes += sievePrimes;
 
-			cout << "Sieve " << finishedSieves << " has " << sievePrimes << " primes" << endl;
+			// cout << "Sieve " << finishedSieves << " has " << sievePrimes << " primes" << endl;
 
 			// delete it
 			delete finished;

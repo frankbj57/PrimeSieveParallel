@@ -275,7 +275,7 @@ private:
 			maxRangeSize = 0xffffffffULL;
 		}
 
-		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum));
+		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum) / numberSieves);
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;

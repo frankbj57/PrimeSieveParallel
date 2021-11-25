@@ -178,6 +178,8 @@ private:
 
 		itype end = nextSieveStart + rangeSize;
 
+		// Make sure the last thread is not too long
+		// or takes the last chunk
 		if (end > MaxNum)
 			end = MaxNum;
 
@@ -263,14 +265,14 @@ private:
 
 		// Calculate rangesize on the basis of used and max memory
 		unsigned long long int startUse = sizeof(starter) + sizeof(itype)*initialNumPrimes;
-		maxRangeSize = (maxMemory - startUse) / numberSieves;
+		maxRangeSize = (maxMemory - startUse + numberSieves -1) / numberSieves;
 		if (maxRangeSize > (0xffffffffULL))
 		{
 			// C++ new only allows 4GB-1 for allocation
 			maxRangeSize = 0xffffffffULL;
 		}
 
-		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum) / numberSieves);
+		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum + numberSieves - 1) / numberSieves);
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;

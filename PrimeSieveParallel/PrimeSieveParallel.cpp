@@ -382,7 +382,7 @@ int main(int argc, char* argv[])
 	{
 		int sieves = std::atol(options[SIEVES].arg);
 
-		if (sieves > 0 && sieves < numberSieves)
+		if (sieves > 0)
 			numberSieves = sieves;
 	}
 

@@ -2,6 +2,7 @@
 //
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <algorithm>
 #include <agents.h>
@@ -56,6 +57,9 @@ itype MaxNum = 1000000000ULL;
 unsigned long long int maxMemory = 0xFFFFFFFFFFFFFFFFULL;
 
 int minRounds = 1;
+
+// File for writing results
+ofstream logfile;
 
 class sieve : public agent
 {
@@ -272,11 +276,20 @@ private:
 			maxRangeSize = 0xffffffffULL;
 		}
 
+		// Make rangesize so that last sieve is not very small
+		// Adjust rangesize to MaxNum number range, so we get number of sieves in parallel
 		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum + numberSieves - 1) / numberSieves);
+
+		// Readjust rangesize of so we get total number of sieves to be a multiple of numbersieves
+		// to obtain parallelism all of the time
+		int minNumSieves = (MaxNum - sqrtMaxNum + rangeSize - 1) / rangeSize;
+		int roundedNumSieves = (minNumSieves + numberSieves - 1) / numberSieves * numberSieves;
+
+		rangeSize = (MaxNum - sqrtMaxNum + roundedNumSieves - 1) / roundedNumSieves;
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;
-		cout << "Using " << (MaxNum - sqrtMaxNum + rangeSize - 1) / rangeSize << " sieves" << endl;
+		cout << "Using " << roundedNumSieves << " sieves" << endl;
 
 		cout << endl;
 
@@ -322,6 +335,9 @@ private:
 		} while (outstandingSieves > 0);
 
 		cout << endl << numprimes << " primtal" << endl;
+		// Output summary
+		logfile << numberSieves << ";" << maxMemory << ";";
+
 		done();
 	};
 };
@@ -427,13 +443,19 @@ int main(int argc, char* argv[])
 	cout << "Searching for primes less than " << MaxNum << endl;
 	cout << "Using " << numberSieves << " parallel sieves" << endl;
 
+	logfile.open("Results.txt", ios_base::app);
+
 	first.start();
 
 	agent::wait(&first);
 
 	start = GetTickCount64() - start;
 
+	logfile << (double)(start) / 1000 << endl;
+
 	cout << "Total time: " << (double)(start) / 1000 << " seconds" << endl;
+
+	logfile.close();
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

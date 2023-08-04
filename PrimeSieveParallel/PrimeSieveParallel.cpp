@@ -2,6 +2,7 @@
 //
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <algorithm>
 #include <agents.h>
@@ -162,6 +163,8 @@ public:
 	{
 	};
 
+	itype numprimes = 0;
+
 private:
 	unbounded_buffer<sieve*> resultChannel;
 
@@ -215,8 +218,6 @@ private:
 		cout << "Initial sieve size: " << sqrtMaxNum << endl;
 		cout << "Initial sieve seeding prime size: " << sqrtSqrtMaxNum << endl;
 
-		itype numprimes = 0;
-
 		// Calculate the first sqrtMaxNum primes
 		itype p = 2;
 		do
@@ -263,14 +264,16 @@ private:
 
 		// Calculate rangesize on the basis of used and max memory
 		unsigned long long int startUse = sizeof(starter) + sizeof(itype)*initialNumPrimes;
-		maxRangeSize = (maxMemory - startUse) / numberSieves;
+		maxRangeSize = (maxMemory - startUse + numberSieves - 1) / numberSieves;
 		if (maxRangeSize > (0xffffffffULL))
 		{
 			// C++ new only allows 4GB-1 for allocation
 			maxRangeSize = 0xffffffffULL;
 		}
 
-		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum) / numberSieves);
+
+		// Adjust rangesize if less than maxMemory needed
+		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum + numberSieves - 1) / numberSieves);
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;
@@ -367,6 +370,7 @@ int main(int argc, char* argv[])
 		if (sieves > 0 && sieves < numberSieves)
 			numberSieves = sieves;
 	}
+	cout << "Specified max sieves: " << numberSieves << endl;
 
 	numberSieves = min(MAXSIEVES, numberSieves);
 
@@ -403,6 +407,7 @@ int main(int argc, char* argv[])
 			maxMemory = memory;
 		}
 	}
+	cout << "Specified max memory: " << maxMemory << endl;
 
 	if (options[PRIME])
 	{
@@ -432,6 +437,16 @@ int main(int argc, char* argv[])
 	start = GetTickCount64() - start;
 
 	cout << "Total time: " << (double)(start) / 1000 << " seconds" << endl;
+
+	// Log results
+	ofstream log("Results.csv", std::ios::app);
+
+	log << MaxNum << ";";
+	log << numberSieves << ";";
+	log << maxMemory << ";";
+	log << first.numprimes << ";";
+	log << (double)(start) / 1000 << ";";
+	log << endl;
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

@@ -166,6 +166,8 @@ public:
 	{
 	};
 
+	itype numprimes = 0;
+
 private:
 	unbounded_buffer<sieve*> resultChannel;
 
@@ -221,8 +223,6 @@ private:
 		cout << "Initial sieve size: " << sqrtMaxNum << endl;
 		cout << "Initial sieve seeding prime size: " << sqrtSqrtMaxNum << endl;
 
-		itype numprimes = 0;
-
 		// Calculate the first sqrtMaxNum primes
 		itype p = 2;
 		do
@@ -269,23 +269,16 @@ private:
 
 		// Calculate rangesize on the basis of used and max memory
 		unsigned long long int startUse = sizeof(starter) + sizeof(itype)*initialNumPrimes;
-		maxRangeSize = (maxMemory - startUse + numberSieves -1) / numberSieves;
+		maxRangeSize = (maxMemory - startUse + numberSieves - 1) / numberSieves;
 		if (maxRangeSize > (0xffffffffULL))
 		{
 			// C++ new only allows 4GB-1 for allocation
 			maxRangeSize = 0xffffffffULL;
 		}
 
-		// Make rangesize so that last sieve is not very small
-		// Adjust rangesize to MaxNum number range, so we get number of sieves in parallel
+
+		// Adjust rangesize if less than maxMemory needed
 		rangeSize = std::min<itype>(maxRangeSize, (MaxNum - sqrtMaxNum + numberSieves - 1) / numberSieves);
-
-		// Readjust rangesize of so we get total number of sieves to be a multiple of numbersieves
-		// to obtain parallelism all of the time
-		int minNumSieves = (MaxNum - sqrtMaxNum + rangeSize - 1) / rangeSize;
-		int roundedNumSieves = (minNumSieves + numberSieves - 1) / numberSieves * numberSieves;
-
-		rangeSize = (MaxNum - sqrtMaxNum + roundedNumSieves - 1) / roundedNumSieves;
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;
@@ -385,6 +378,7 @@ int main(int argc, char* argv[])
 		if (sieves > 0)
 			numberSieves = sieves;
 	}
+	cout << "Specified max sieves: " << numberSieves << endl;
 
 	numberSieves = min(MAXSIEVES, numberSieves);
 
@@ -421,6 +415,7 @@ int main(int argc, char* argv[])
 			maxMemory = memory;
 		}
 	}
+	cout << "Specified max memory: " << maxMemory << endl;
 
 	if (options[PRIME])
 	{
@@ -455,7 +450,15 @@ int main(int argc, char* argv[])
 
 	cout << "Total time: " << (double)(start) / 1000 << " seconds" << endl;
 
-	logfile.close();
+	// Log results
+	ofstream log("Results.csv", std::ios::app);
+
+	log << MaxNum << ";";
+	log << numberSieves << ";";
+	log << maxMemory << ";";
+	log << first.numprimes << ";";
+	log << (double)(start) / 1000 << ";";
+	log << endl;
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

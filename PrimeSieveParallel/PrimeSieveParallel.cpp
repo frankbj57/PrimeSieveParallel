@@ -282,7 +282,7 @@ private:
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;
-		cout << "Using " << roundedNumSieves << " sieves" << endl;
+		cout << "Using " << (MaxNum - sqrtMaxNum + rangeSize - 1) / rangeSize << " sieves" << endl;
 
 		cout << endl;
 

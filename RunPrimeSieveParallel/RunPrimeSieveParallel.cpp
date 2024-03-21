@@ -7,7 +7,7 @@
 
 int main()
 {
-    const unsigned long long int maxPrime = 1000000000;
+    const unsigned long long int maxPrime = 100000000;
     std::ostringstream commandLine;
 
     std::ofstream logfile("Results.txt", std::ios_base::out | std::ios_base::trunc);

@@ -109,9 +109,9 @@ private:
 	void run()
 	{
 		itype rangeSize = end - startRange;
-		numbers = new char[rangeSize];
-		for (itype i = 0; i < rangeSize; i++)
-			numbers[i] = 0;
+		numbers = new char[rangeSize] { int() };
+		//for (itype i = 0; i < rangeSize; i++)
+		//	numbers[i] = 0;
 
 		itype sqrtEnd = sqrt((double)end) + 1;
 		itype p = 2;

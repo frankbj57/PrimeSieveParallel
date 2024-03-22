@@ -7,23 +7,30 @@
 
 int main()
 {
-    const unsigned long long int maxPrime = 100000000;
+#define G1 (1000000000)
+#define M1 (1000000)
+#define K1 (1000)
+
+    const unsigned long long int maxPrime = 10LL * G1;
     std::ostringstream commandLine;
-
-    std::ofstream logfile("Results.txt", std::ios_base::out | std::ios_base::trunc);
-
-    logfile << maxPrime << std::endl;
-
-    logfile.close();
-
     unsigned long long memValues[] = {
-        16000000000,
-        8000000000, 4000000000, 2000000000, 1000000000, 500000000, 250000000, 100000000,
-        50000000, 20000000, 10000000, 8000000, 6000000, 4000000, 2000000, 1000000
+        10LL * G1,
+        5LL * G1,
+        2LL * G1,
+        1LL * G1,
+        500LL * M1,
+        200LL * M1,
+        100LL * M1,
+        50LL * M1,
+        20LL * M1,
+        10LL * M1,
+        5LL * M1,
+        2LL * M1,
+        1LL * M1,
     };
     int numMemValues = sizeof(memValues) / sizeof(memValues[0]);
 
-    int sieveValues[] = { 1, 2, 4, 5, 6, 8, 10, 12, 14, 16 };
+    int sieveValues[] = { 1, 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32 };
     int numSieveValues = sizeof(sieveValues) / sizeof(sieveValues[0]);
 
     for (int s = 0; s < numSieveValues; s++)
@@ -35,7 +42,9 @@ int main()
             commandLine << "..\\..\\PrimeSieveParallel\\x64\\Release\\PrimeSieveParallel.exe ";
             commandLine << " -p " << maxPrime;
             commandLine << " -s " << sieveValues[s];
-            commandLine << " -m " << memValues[m] << std::endl;
+            commandLine << " -m " << memValues[m];
+            commandLine << " -l " << "p10Gmbig.csv";
+            commandLine << std::endl;
 
             std::cout << commandLine.str();
 

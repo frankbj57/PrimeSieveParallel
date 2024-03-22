@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <agents.h>
+#include <charconv>
 
 #include <windows.h>
 #include <sysinfoapi.h>
@@ -23,21 +24,23 @@ struct Arg : public option::Arg
 	}
 };
 
-enum  optionIndex { UNKNOWN, SIEVES, MEMORY, ROUNDS, PRIME, HELP };
+enum  optionIndex { UNKNOWN, SIEVES, MEMORY, ROUNDS, PRIME, HELP, LOGFILE };
 
 const option::Descriptor usage[] = {
-{ UNKNOWN,  0, "", "",            Arg::None, "USAGE: primesieveparallel [options]\n\n"
+{ UNKNOWN,  0, "", "",			Arg::None, "USAGE: primesieveparallel [options]\n\n"
 										  "Options:" },
-{ HELP,     0, "h", "help",      Arg::None,    "  \t--help  \tPrint usage and exit." },
-{ SIEVES,   0, "s","sieves",    Arg::Required,"  -s <arg>, \t--sieves=<arg>"
+{ HELP,     0, "h", "help",		Arg::None,    "  \t--help  \tPrint usage and exit." },
+{ SIEVES,   0, "s","sieves",	Arg::Required,"  -s <arg>, \t--sieves=<arg>"
 										  "  \tMaximum number of sieves. Default is number of logical CPU cores" },
-{ MEMORY,   0, "m","memory",    Arg::Required,"  -m<arg>, \t--memory=<arg>  \tMaximum amount of memory to use"
+{ MEMORY,   0, "m","memory",	Arg::Required,"  -m<arg>, \t--memory=<arg>  \tMaximum amount of memory to use"
 										  "  \t [-]<amount>[%]. Default is free physical RAM"
 										  "  \t either absolute max, or '-' deduct from free physical RAM. '%' means this is in percent of that" },
-{ ROUNDS,   0, "r","rounds",    Arg::Required, "  -r <num>, \t--rounds=<num>  \tMinimum number of rounds of sieves" },
-{ PRIME,    0, "p","prime",     Arg::Required,"  -p <arg>, \t--prime=<arg>"
+{ ROUNDS,   0, "r","rounds",	Arg::Required, "  -r <num>, \t--rounds=<num>  \tMinimum number of rounds of sieves (obsolete)" },
+{ PRIME,    0, "p","prime",		Arg::Required,"  -p <arg>, \t--prime=<arg>"
 										  "  \tFind primes up to this number" },
-{ UNKNOWN,  0, "", "",          Arg::None,
+{ LOGFILE,  0, "l","logfile",	Arg::Required,"  -l <arg>, \t--logfile=<arg>"
+										  "  \tWrite summary of run to this file" },
+{ UNKNOWN,  0, "", "",			Arg::None,
  "\nExamples:\n"
  "  primesieveparallel -s4 -m-5% -p 1000000\n"
 },
@@ -46,7 +49,8 @@ const option::Descriptor usage[] = {
 
 typedef unsigned long long int itype;
 
-const int MAXSIEVES = 32;
+// Default number of sieves
+const int MAXSIEVES = 8;
 int numberSieves = MAXSIEVES;
 
 // Range to survey/sift
@@ -57,9 +61,6 @@ itype MaxNum = 1000000000ULL;
 unsigned long long int maxMemory = 0xFFFFFFFFFFFFFFFFULL;
 
 int minRounds = 1;
-
-// File for writing results
-ofstream logfile;
 
 class sieve : public agent
 {
@@ -167,6 +168,7 @@ public:
 	};
 
 	itype numprimes = 0;
+	int long long totalsieves;
 
 private:
 	unbounded_buffer<sieve*> resultChannel;
@@ -282,7 +284,8 @@ private:
 
 		cout << endl;
 		cout << "Range for each sieve: " << rangeSize << endl;
-		cout << "Using " << (MaxNum - sqrtMaxNum + rangeSize - 1) / rangeSize << " sieves" << endl;
+		totalsieves = (MaxNum - sqrtMaxNum + rangeSize - 1) / rangeSize;
+		cout << "Using " << totalsieves << " sieves" << endl;
 
 		cout << endl;
 
@@ -329,7 +332,6 @@ private:
 
 		cout << endl << numprimes << " primtal" << endl;
 		// Output summary
-		logfile << numberSieves << ";" << maxMemory << ";";
 
 		done();
 	};
@@ -344,7 +346,8 @@ int main(int argc, char* argv[])
 	std::cout.imbue(std::locale("dk_DK"));
 	// std::cout.imbue(std::locale(std::locale, new numpunct<char>()));
 
-	argc -= (argc > 0); argv += (argc > 0); // skip program name argv[0] if present
+	argc -= (argc > 0) ? 1 : 0; 
+	argv += (argc > 0) ? 1 : 0; // skip program name argv[0] if present
 	option::Stats  stats(usage, argc, argv);
 	std::vector<option::Option> options(stats.options_max);
 	std::vector<option::Option> buffer(stats.buffer_max);
@@ -361,10 +364,6 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	unsigned long long start = GetTickCount64();
-
-	starter first;
-
 	// Get number of processors (logical cores)
 	SYSTEM_INFO systemInfo;
 	GetSystemInfo(&systemInfo);
@@ -380,9 +379,11 @@ int main(int argc, char* argv[])
 	}
 	cout << "Specified max sieves: " << numberSieves << endl;
 
-	numberSieves = min(MAXSIEVES, numberSieves);
+	// Allow any number of parallel sieves
+	// So comment this out
+	// numberSieves = min(MAXSIEVES, numberSieves);
 
-	// Available amount of physical memory to avoid paging
+	// Default is available amount of physical memory to avoid page swapping
 	MEMORYSTATUSEX memoryInfo;
 	memoryInfo.dwLength = sizeof(memoryInfo);
 	GlobalMemoryStatusEx(&memoryInfo);
@@ -391,9 +392,13 @@ int main(int argc, char* argv[])
 
 	if (options[MEMORY])
 	{
+		// But can be overridden by explicit value
 		long long int memory = 0;
 		const char* pMem = options[MEMORY].arg;
-		memory = atoll(pMem);
+		// Allow parameter to be in float format, eg. 1E8
+		double dMem;
+		std::from_chars(pMem, pMem + strlen(pMem), dMem);
+		memory = (long long int) dMem;
 		if (memory < 0)
 			memory = -memory;
 
@@ -419,26 +424,23 @@ int main(int argc, char* argv[])
 
 	if (options[PRIME])
 	{
-		itype maxnum = (itype)atoll(options[PRIME].arg);
+		// Allow parameter to be in float format, eg. 1E8
+		double dMaxnum;
+		const char* parg = options[PRIME].arg;
+		std::from_chars(parg, parg + strlen(parg), dMaxnum);
+
+		itype maxnum = (itype) dMaxnum;
 
 		if (maxnum > 0)
 			MaxNum = maxnum;
 	}
 
-	if (options[ROUNDS])
-	{
-		minRounds = atol(options[ROUNDS].arg);
-		if (minRounds < 0)
-			minRounds = -minRounds;
-
-		if (minRounds < 1)
-			minRounds = 1;
-	}
-
 	cout << "Searching for primes less than " << MaxNum << endl;
 	cout << "Using " << numberSieves << " parallel sieves" << endl;
 
-	logfile.open("Results.txt", ios_base::app);
+	unsigned long long start = GetTickCount64();
+
+	starter first;
 
 	first.start();
 
@@ -446,28 +448,19 @@ int main(int argc, char* argv[])
 
 	start = GetTickCount64() - start;
 
-	logfile << (double)(start) / 1000 << endl;
-
 	cout << "Total time: " << (double)(start) / 1000 << " seconds" << endl;
 
 	// Log results
-	ofstream log("Results.csv", std::ios::app);
+	if (options[LOGFILE])
+	{
+		ofstream log(options[LOGFILE].arg, std::ios::app);
 
-	log << MaxNum << ";";
-	log << numberSieves << ";";
-	log << maxMemory << ";";
-	log << first.numprimes << ";";
-	log << (double)(start) / 1000 << ";";
-	log << endl;
+		log << MaxNum << ";";
+		log << numberSieves << ";";
+		log << first.totalsieves << ";";
+		log << maxMemory << ";";
+		log << first.numprimes << ";";
+		log << (double)(start) / 1000 << ";";
+		log << endl;
+	}
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

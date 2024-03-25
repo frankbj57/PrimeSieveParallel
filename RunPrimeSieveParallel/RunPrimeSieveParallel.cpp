@@ -7,23 +7,25 @@
 
 int main()
 {
-    const unsigned long long int maxPrime = 100000000;
+#define G1 (1000000000)
+#define M1 (1000000)
+#define K1 (1000)
+
+    const unsigned long long int maxPrime = 100LL * G1;
     std::ostringstream commandLine;
-
-    std::ofstream logfile("Results.txt", std::ios_base::out | std::ios_base::trunc);
-
-    logfile << maxPrime << std::endl;
-
-    logfile.close();
-
     unsigned long long memValues[] = {
-        16000000000,
-        8000000000, 4000000000, 2000000000, 1000000000, 500000000, 250000000, 100000000,
-        50000000, 20000000, 10000000, 8000000, 6000000, 4000000, 2000000, 1000000
+        1LL * M1,
+        2LL * M1,
+        20LL * M1,
+        50LL * M1,
+        100LL * M1,
+        10LL * G1,
+        20LL * G1,
+        40LL * G1,
     };
     int numMemValues = sizeof(memValues) / sizeof(memValues[0]);
 
-    int sieveValues[] = { 1, 2, 4, 5, 6, 8, 10, 12, 14, 16 };
+    int sieveValues[] = { 16, 12, 10, 8, 4, 2, 1 };
     int numSieveValues = sizeof(sieveValues) / sizeof(sieveValues[0]);
 
     for (int s = 0; s < numSieveValues; s++)
@@ -35,7 +37,9 @@ int main()
             commandLine << "..\\..\\PrimeSieveParallel\\x64\\Release\\PrimeSieveParallel.exe ";
             commandLine << " -p " << maxPrime;
             commandLine << " -s " << sieveValues[s];
-            commandLine << " -m " << memValues[m] << std::endl;
+            commandLine << " -m " << memValues[m];
+            commandLine << " -l " << "p100Gmbig.csv";
+            commandLine << std::endl;
 
             std::cout << commandLine.str();
 
@@ -43,14 +47,3 @@ int main()
         }
     }
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

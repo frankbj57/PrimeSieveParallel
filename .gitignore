@@ -338,3 +338,7 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/RunPrimeSieveParallel/p100Gmbig.csv
+/RunPrimeSieveParallel/p100gmbigGraphs.xlsx
+/RunPrimeSieveParallel/p10Gmbig.csv
+/RunPrimeSieveParallel/p10gmbigGraphs.xlsx
